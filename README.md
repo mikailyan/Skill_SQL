@@ -13,7 +13,7 @@ WHERE   m.horsepower  > 150
   AND   m.price       < 20000
   AND   m.type        = 'Sport'
 ORDER BY m.horsepower DESC;
-
+```
 ## Задача 2
 
 Вывести информацию о подходящих автомобилях, мотоциклах и велосипедах, отсортированных по мощности.
