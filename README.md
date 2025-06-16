@@ -324,7 +324,9 @@ ORDER BY FIELD(
          ID_customer;
 
 ```
+
 #Структура организации
+
 ## Задача 1
 
 ```sql
