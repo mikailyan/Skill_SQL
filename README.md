@@ -324,3 +324,121 @@ ORDER BY FIELD(
          ID_customer;
 
 ```
+#Структура организации
+## Задача 1
+
+```sql
+WITH RECURSIVE subordinates AS (
+    SELECT  EmployeeID
+    FROM    Employees
+    WHERE   EmployeeID = 1 
+    UNION ALL
+    SELECT  e.EmployeeID
+    FROM    Employees e
+    JOIN    subordinates s  ON e.ManagerID = s.EmployeeID
+)
+SELECT
+    e.EmployeeID,
+    e.Name                        AS EmployeeName,
+    e.ManagerID,
+    d.DepartmentName,
+    r.RoleName,
+    ( SELECT GROUP_CONCAT(DISTINCT p.ProjectName
+                          ORDER BY p.ProjectName SEPARATOR ', ')
+      FROM   Projects p
+      WHERE  p.DepartmentID = e.DepartmentID )  AS ProjectNames,
+    ( SELECT GROUP_CONCAT(t.TaskName
+                          ORDER BY t.TaskID SEPARATOR ', ')
+      FROM   Tasks t
+      WHERE  t.AssignedTo = e.EmployeeID )      AS TaskNames
+FROM        Employees   e
+JOIN        subordinates s  ON s.EmployeeID = e.EmployeeID
+LEFT JOIN   Departments  d  ON d.DepartmentID = e.DepartmentID
+LEFT JOIN   Roles        r  ON r.RoleID       = e.RoleID
+ORDER BY    e.Name;
+
+```
+
+## Задача 2
+
+```sql
+WITH RECURSIVE subordinates AS (
+    SELECT  EmployeeID
+    FROM    Employees
+    WHERE   EmployeeID = 1
+    UNION ALL
+    SELECT  e.EmployeeID
+    FROM    Employees e
+    JOIN    subordinates s  ON e.ManagerID = s.EmployeeID
+)
+SELECT
+    e.EmployeeID,
+    e.Name                          AS EmployeeName,
+    e.ManagerID,
+    d.DepartmentName,
+    r.RoleName,
+    ( SELECT GROUP_CONCAT(DISTINCT p.ProjectName
+                          ORDER BY p.ProjectName SEPARATOR ', ')
+      FROM   Projects p
+      WHERE  p.DepartmentID = e.DepartmentID )  AS ProjectNames,
+    ( SELECT GROUP_CONCAT(t.TaskName
+                          ORDER BY t.TaskID SEPARATOR ', ')
+      FROM   Tasks t
+      WHERE  t.AssignedTo = e.EmployeeID )      AS TaskNames,
+    ( SELECT COUNT(*)
+      FROM   Tasks t
+      WHERE  t.AssignedTo = e.EmployeeID )      AS TotalTasks,
+    ( SELECT COUNT(*)
+      FROM   Employees x
+      WHERE  x.ManagerID = e.EmployeeID )       AS TotalSubordinates
+FROM        Employees   e
+JOIN        subordinates s  ON s.EmployeeID = e.EmployeeID
+LEFT JOIN   Departments  d  ON d.DepartmentID = e.DepartmentID
+LEFT JOIN   Roles        r  ON r.RoleID       = e.RoleID
+ORDER BY    e.Name;
+
+```
+
+## Задача 3
+
+```sql
+WITH RECURSIVE hierarchy AS (
+    SELECT  ManagerID AS boss,
+            EmployeeID AS sub
+    FROM    Employees
+    WHERE   ManagerID IS NOT NULL
+    UNION ALL
+    SELECT  h.boss,
+            e.EmployeeID
+    FROM    hierarchy h
+    JOIN    Employees  e  ON e.ManagerID = h.sub
+),
+sub_counts AS ( 
+    SELECT  boss            AS EmployeeID,
+            COUNT(DISTINCT sub) AS TotalSubordinates
+    FROM    hierarchy
+    GROUP BY boss
+)
+SELECT
+    e.EmployeeID,
+    e.Name                        AS EmployeeName,
+    e.ManagerID,
+    d.DepartmentName,
+    r.RoleName,
+    ( SELECT GROUP_CONCAT(DISTINCT p.ProjectName
+                          ORDER BY p.ProjectName SEPARATOR ', ')
+      FROM   Projects p
+      WHERE  p.DepartmentID = e.DepartmentID )  AS ProjectNames,
+    ( SELECT GROUP_CONCAT(t.TaskName
+                          ORDER BY t.TaskID SEPARATOR ', ')
+      FROM   Tasks t
+      WHERE  t.AssignedTo = e.EmployeeID )      AS TaskNames,
+    sc.TotalSubordinates
+FROM        Employees   e
+JOIN        Roles       r   ON r.RoleID       = e.RoleID
+                             AND r.RoleName   = 'Менеджер'
+JOIN        sub_counts  sc  ON sc.EmployeeID  = e.EmployeeID 
+LEFT JOIN   Departments d   ON d.DepartmentID = e.DepartmentID
+ORDER BY    e.Name;
+
+```
