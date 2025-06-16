@@ -103,7 +103,7 @@ WITH car_stats AS (
 best_overall AS (
     SELECT  *
     FROM    car_stats
-    ORDER BY avg_pos, car_name      -- если ничья, берём по алфавиту
+    ORDER BY avg_pos, car_name
     LIMIT 1
 )
 SELECT  bo.car_name,
@@ -173,7 +173,7 @@ class_metrics AS (
             COUNT(*)     AS car_cnt
     FROM    car_stats
     GROUP BY car_class
-    HAVING  COUNT(*) >= 2          -- учитываем только классы с ≥2 авто
+    HAVING  COUNT(*) >= 2  
 )
 SELECT  cs.car_name,
         cs.car_class,
@@ -200,7 +200,6 @@ WITH car_stats AS (
     GROUP BY c.name, c.class
 ),
 low_pos_cars AS (
-    -- Автомобили с низкой (т.е. высокой численно) средней позицией
     SELECT * 
     FROM   car_stats
     WHERE  avg_pos > 3.0
@@ -231,5 +230,97 @@ JOIN        Classes      cl ON cl.class     = lpc.car_class
 ORDER BY    lc.low_position_count DESC,
             lpc.car_class,
             lpc.car_name;
+
+```
+# Бронирвоание отелей
+## Задача 1
+
+```sql
+SELECT
+    c.name,
+    c.email,
+    c.phone,
+    COUNT(*) AS total_bookings,
+    GROUP_CONCAT(DISTINCT h.name ORDER BY h.name SEPARATOR ', ') AS hotels_list,
+    ROUND(AVG(DATEDIFF(b.check_out_date, b.check_in_date)), 4) AS avg_stay_days
+FROM   Customer  AS c
+JOIN   Booking   AS b  ON b.ID_customer = c.ID_customer
+JOIN   Room      AS r  ON r.ID_room     = b.ID_room
+JOIN   Hotel     AS h  ON h.ID_hotel    = r.ID_hotel
+GROUP  BY c.ID_customer, c.name, c.email, c.phone
+HAVING COUNT(*) > 2
+   AND COUNT(DISTINCT h.ID_hotel) > 1
+ORDER  BY total_bookings DESC, c.name;
+
+```
+## Задача 2
+
+```sql
+SELECT
+    c.ID_customer,
+    c.name,
+    COUNT(*)                                              AS total_bookings,
+    ROUND(SUM(r.price), 2)                                AS total_spent,
+    COUNT(DISTINCT h.ID_hotel)                            AS unique_hotels
+FROM   Customer  AS c
+JOIN   Booking   AS b  ON b.ID_customer = c.ID_customer
+JOIN   Room      AS r  ON r.ID_room     = b.ID_room
+JOIN   Hotel     AS h  ON h.ID_hotel    = r.ID_hotel
+GROUP  BY c.ID_customer, c.name
+HAVING COUNT(*)                   > 2 
+   AND COUNT(DISTINCT h.ID_hotel) > 1  
+   AND SUM(r.price)               > 500
+ORDER  BY total_spent;
+
+```
+## Задача 3
+
+```sql
+WITH hotel_cat AS (
+    SELECT
+        h.ID_hotel,
+        CASE
+            WHEN AVG(r.price) < 175          THEN 'Дешевый'
+            WHEN AVG(r.price) <= 300         THEN 'Средний'
+            ELSE                                   'Дорогой'
+        END AS hotel_type
+    FROM   Hotel h
+    JOIN   Room  r  ON r.ID_hotel = h.ID_hotel
+    GROUP  BY h.ID_hotel
+),
+client_visits AS (
+    SELECT
+        c.ID_customer,
+        c.name,
+        GROUP_CONCAT(DISTINCT h.name ORDER BY h.name SEPARATOR ',') AS visited_hotels,
+        MAX(hc.hotel_type = 'Дорогой')  AS has_expensive,
+        MAX(hc.hotel_type = 'Средний')  AS has_medium,
+        MAX(hc.hotel_type = 'Дешевый')  AS has_cheap
+    FROM   Customer   c
+    JOIN   Booking    b   ON b.ID_customer = c.ID_customer
+    JOIN   Room       r   ON r.ID_room     = b.ID_room
+    JOIN   Hotel      h   ON h.ID_hotel    = r.ID_hotel
+    JOIN   hotel_cat  hc  ON hc.ID_hotel   = h.ID_hotel
+    GROUP  BY c.ID_customer, c.name
+)
+SELECT
+    ID_customer,
+    name,
+    CASE
+        WHEN has_expensive = 1 THEN 'Дорогой'
+        WHEN has_medium    = 1 THEN 'Средний'
+        ELSE                      'Дешевый'
+    END AS preferred_hotel_type,
+    visited_hotels
+FROM   client_visits
+ORDER BY FIELD(
+           CASE
+               WHEN has_expensive = 1 THEN 'Дорогой'
+               WHEN has_medium    = 1 THEN 'Средний'
+               ELSE                      'Дешевый'
+           END,
+           'Дешевый', 'Средний', 'Дорогой'
+         ),
+         ID_customer;
 
 ```
